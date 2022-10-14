@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node ./dist/index.js",
-    "all": "npm run build && npm run start"
+    "format": "prettier --write **/*.ts",
+    "format-check": "prettier --check **/*.ts",
+    "all": "npm run build && npm run format && npm run start"
   },
   "repository": {
     "type": "git",
@@ -19,6 +21,19 @@
   },
   "homepage": "https://github.com/JackTn/github-tools#readme",
   "devDependencies": {
+    "@types/node": "^18.8.3",
     "typescript": "^4.8.4"
+  },
+  "dependencies": {
+    "@octokit/core": "^4.0.5",
+    "@octokit/plugin-paginate-rest": "^4.3.1",
+    "@octokit/plugin-rest-endpoint-methods": "^6.6.2",
+    "@octokit/plugin-throttling": "^4.3.0",
+    "@types/lodash": "^4.14.186",
+    "dotenv": "^16.0.3",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "prettier": "^2.7.1",
+    "xlsx": "^0.18.5"
   }
 }

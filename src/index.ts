@@ -1,9 +1,6 @@
-import { a } from './git'
+import {deleteBranches} from './git'
+import {deleteRef} from './test'
+console.log('Start')
 
-
-console.log(a)
-console.log(123)
-console.log(123)
-console.log(123)
-console.log(123)
-console.log(123)
+deleteBranches()
+// deleteRef()
