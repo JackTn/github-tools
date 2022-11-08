@@ -1,0 +1,6 @@
+{
+    "onboarded_services": [{
+        "ado_url": "https://dev.azure.com/azure-sdk/internal/_git/openapi-test",
+        "swagger_dir": "/src/apispecs/test/swagger-armcore-rp"
+    }]
+}
