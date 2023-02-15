@@ -48,16 +48,17 @@ write-host $home_dir
 function OriginRepoClone {
     # Set-PsDebug -Trace 1
     
-    $FilePath = $SourceRepo -split "/" -join "-"
+    $SourceFilePath = $SourceRepo -split "/" -join "-"
 
-    if (-not (Test-Path $FilePath)) {
-        New-Item -Path $FilePath -ItemType Directory -Force
-        Set-Location $FilePath
+    if (-not (Test-Path $SourceFilePath)) {
+        New-Item -Path $SourceFilePath -ItemType Directory -Force
+        Set-Location $SourceFilePath
         git init
+        # git config --global init.defaultBranch main
         git remote add Source "https://$($GH_TOKEN)@github.com/$($SourceRepo).git"
     }
     else {
-        Set-Location $FilePath
+        Set-Location $SourceFilePath
     }
 
     # Check the default branch
@@ -75,7 +76,7 @@ function OriginRepoClone {
         exit 1
     }
     
-    # git checkout -B source_branch "refs/remotes/Source/${SourceBranch}"
+    git checkout -B source_branch "refs/remotes/Source/${SourceBranch}"
     
     # Set-PsDebug -Off
     Set-Location $home_dir
@@ -85,16 +86,19 @@ function OriginRepoClone {
 
 
 function TargetRepoClone {
-    $FilePath = $TargetRepo -split "/" -join "-"
+    $SourceFilePath = $SourceRepo -split "/" -join "-"
+    $TargetFilePath = $TargetRepo -split "/" -join "-"
+    $SourceSyncPath = "/specification/common-types/" 
+    $TargetSyncPath = "/specification/common-types/" 
 
-    if (-not (Test-Path $FilePath)) {
-        New-Item -Path $FilePath -ItemType Directory -Force
-        Set-Location $FilePath
+    if (-not (Test-Path $TargetFilePath)) {
+        New-Item -Path $TargetFilePath -ItemType Directory -Force
+        Set-Location $TargetFilePath
         git init
         git remote add Target "https://$($GH_TOKEN)@github.com/$($TargetRepo).git"
     }
     else {
-        Set-Location $FilePath
+        Set-Location $TargetFilePath
     }
 
     $defaultBranch = (git remote show Target | Out-String) -replace "(?ms).*HEAD branch: (\w+).*", '$1'
@@ -113,24 +117,78 @@ function TargetRepoClone {
     Checkout-Branch $TargetBranch $checkoutFrom
     Write-Host "checking $TargetBranch from $defaultBranch"
 
-    git -c user.name="azure-sdk" -c user.email="azuresdk@microsoft.com" merge --strategy-option=theirs $defaultBranch
-    FailOnError "Failed to merge for ${TargetRepo}:${TargetBranch}"
-    git -c user.name="azure-sdk" -c user.email="azuresdk@microsoft.com" rebase --strategy-option=theirs $defaultBranch
-    FailOnError "Failed to rebase for ${TargetRepo}:${TargetBranch}"
+    if (git diff "Target/$defaultBranch") {
+        write-host 123
+        git -c user.name="azure-sdk" -c user.email="azuresdk@microsoft.com" merge --strategy-option=theirs "Target/$defaultBranch"
+        FailOnError "Failed to merge for ${TargetRepo}:${TargetBranch}"
+        git -c user.name="azure-sdk" -c user.email="azuresdk@microsoft.com" rebase --strategy-option=theirs "Target/$defaultBranch"
+        FailOnError "Failed to rebase for ${TargetRepo}:${TargetBranch}"
+    }
 
-    git push --force Target "target_branch:refs/heads/${TargetBranch}"
+    git push --force Target ${TargetBranch}
     FailOnError "Failed to push to ${TargetRepo}:${TargetBranch}"
 
     
+    $apath = Join-Path $home_dir "$SourceFilePath" "$SourceSyncPath"
+    $bpath = Join-Path $home_dir "$TargetFilePath" "$TargetSyncPath"
+    write-host $apath
+    write-host $bpath
+    # delete path files
+    if (test-path $bpath) {
+        write-host 00000
+        Remove-Item "$bpath" -Force -Recurse
+    }
     # copy path files from github
-    Copy-Item "$($ADO_file_path)/$SyncPath" "$($ADO_file_path)/$SyncPath" -Recurse -Force
+    Copy-Item -Path "$apath" -Destination "$bpath" -Recurse -Force
+
+    git add .
+    git commit -m "sync"
+    git push --force Target ${TargetBranch}
+    FailOnError "Failed to push to ${TargetRepo}:${TargetBranch}"
 
     Set-Location $home_dir
 }
 
 # TargetRepoClone
 
-# copy path files from github
-$apath = Join-Path $home_dir "JackTn-TestRepo-One" "arm-compute"
-$bpath = Join-Path $home_dir "JackTn-TestRepo-Two" "asd" "cccv"
-Copy-Item -Path $apath -Destination $bpath -Recurse -Force
+
+Set-Location JackTn-TestRepo-Two
+Install-Module -Name PowerShellForGitHub
+$url = "https://api.github.com/repos/$($TargetRepo)/pulls"
+write-host $url
+function Get-Headers ($token) {
+    $headers = @{ Authorization = "bearer $token" }
+    return $headers
+}
+# $resp = Invoke-RestMethod -Uri $url -Method Get -ContentType "application/json" -Headers (Get-Headers -token $GH_TOKEN) | ConvertFrom-Json
+
+# $resp = Invoke-WebRequest `
+#     -Method GET `
+#     -Headers (Get-Headers -token $GH_TOKEN) `
+#     -Uri $url `
+# | ConvertFrom-Json
+
+# $secureString = ("$GH_TOKEN" | ConvertTo-SecureString -AsPlainText -Force)
+# $cred = New-Object System.Management.Automation.PSCredential "username is ignored", $secureString
+# Set-GitHubAuthentication -Credential $cred
+# # $secureString = $null # clear this out now that it's no longer needed
+# # $cred = $null # clear this out now that it's no longer needed
+
+# -Uri "https://github.com/$($TargetRepo)"`
+    # -State Open `
+    # -Base "main" ` 
+    #user:ref-name
+    # -Head "user:Jmain" `
+
+$pullRequests = Get-GitHubPullRequest `
+    -OwnerName "JackTn" `
+    -RepositoryName "TestRepo-Two" `
+    -AccessToken $GH_TOKEN `
+    -State Open `
+    -Head "Jacktn:JackTn-patch-2" `
+    -Base "main" 
+
+FailOnError "Faileded $_"
+# write-host $resp
+write-host $pullRequests
+Set-Location $home_dir
