@@ -1,21 +1,3 @@
-# Azure/azure-sdk-for-python:
-# Branch: release/v3
-# FilePath: 123123132
-# TargetRepos:
-#   Azure/azure-sdk-for-python-pr:
-#   azure-sdk/azure-sdk-for-python:
-#   azure-sdk/azure-sdk-for-python-pr:
-
-# sourceRepo:
-#     -branch:
-#     -path:
-# targetRepos:
-#     -targetRepo:
-#         -branch:
-#         -path:
-#     -targetRepo:
-#         -branch:
-#         -path:
 Function FailOnError([string]$ErrorMessage, $CleanUpScripts = 0) {
     if ($LASTEXITCODE -ne 0) {
         Write-Host "#`#vso[task.logissue type=error]$ErrorMessage"
@@ -25,20 +7,30 @@ Function FailOnError([string]$ErrorMessage, $CleanUpScripts = 0) {
 }
 
 $SourceRepo = "JackTn/TestRepo-One"
-$GH_TOKEN = ""
-# $SourceBranch = "main" 
+$SourceFolder = $SourceRepo -split "/" -join "-"
+$SourceBranch = 'main'
+$SourceSyncFilePath = '/specification/common-types/'
 
-$TargetRepo = 'JackTn/TestRepo-Two'
-$TargetBranch = "Sync-By-$($SourceRepo)-4" 
-$SyncPath = "/specification/common-types/" 
+$TargetRepo = "JackTn/TestRepo-Two"
+$TargetFolder = $TargetRepo -split "/" -join "-"
+$TargetBranch = "main"
+$TargetSyncFilePath = "/specification/common-types/"
 
+$UserName = "azure-sdk"
+$UserEmail = "azuresdk@microsoft.com"
 $home_dir = $pwd
-write-host $home_dir
+$GH_TOKEN = ""
+
+
+$pullRequestBranch = "Sync-from-$SourceFolder"
+$pullRequestTitle = "[AutoSync] Sync $TargetSyncFilePath folder from $SourceRepo repo"
+$pullRequestBody = "Sync $TargetSyncFilePath folder from [$SourceRepo](https://github.com/$SourceRepo/tree/$SourceBranch$SourceSyncFilePath)"
 
 function OriginRepoClone {
     # Set-PsDebug -Trace 1
-    
     $SourceFolder = $SourceRepo -split "/" -join "-"
+
+    git config --global init.defaultBranch "main"
 
     if (-not (Test-Path $SourceFolder)) {
         New-Item -Path $SourceFolder -ItemType Directory -Force
@@ -72,14 +64,18 @@ function OriginRepoClone {
     Set-Location $home_dir
 }
 
-OriginRepoClone
+# OriginRepoClone
+
+Install-Module -Name PowerShellForGitHub
 
 function TargetRepoClone {
-    $SourceFolder = $SourceRepo -split "/" -join "-"
-    $TargetFolder = $TargetRepo -split "/" -join "-"
-    $SourceSyncFilePath = "/specification/common-types/" 
-    $TargetSyncFilePath = "/specification/common-types/" 
+    # $SourceFolder = $SourceRepo -split "/" -join "-"
+    # $TargetFolder = $TargetRepo -split "/" -join "-"
+    # $SourceSyncFilePath = "/specification/common-types/" 
+    # $TargetSyncFilePath = "/specification/common-types/" 
+
     git config --global init.defaultBranch "main"
+
     if (-not (Test-Path $TargetFolder)) {
         New-Item -Path $TargetFolder -ItemType Directory -Force
         Set-Location $TargetFolder
@@ -90,43 +86,53 @@ function TargetRepoClone {
         Set-Location $TargetFolder
     }
 
-    $defaultBranch = (git remote show Target | Out-String) -replace "(?ms).*HEAD branch: (\w+).*", '$1'
-    
+    git config --global user.email "$UserEmail"
+    git config --global user.name "$UserName"
+
+    if (!$TargetBranch) {
+        $defaultBranch = (git remote show Target | Out-String) -replace "(?ms).*HEAD branch: (\w+).*", '$1'
+        Write-Host "No target branch. Fetch default branch $defaultBranch."
+        $TargetBranch = $defaultBranch
+    }
+
     git fetch --all
     FailOnError "Failed to fetch DefaultBranch ${defaultBranch}."
 
-    $isExistBranch = $(git branch --list --remotes "Target/$TargetBranch")
+    $isExistBranch = $(git branch --list --remotes "Target/$pullRequestBranch")
     if ($isExistBranch) {
-        write-host "has branch vb1"
-        git checkout -b $TargetBranch "Target/$TargetBranch"
-        Write-Host "checking $TargetBranch from remote"
+        write-host "remote has branch"
+        git checkout -b $pullRequestBranch "Target/$pullRequestBranch"
+        Write-Host "checking $pullRequestBranch from remote"
     }
     else {
-        write-host "has no vb2"
-        git checkout -b $TargetBranch "Target/$defaultBranch"
-        Write-Host "checking new branch $TargetBranch from $defaultBranch"
+        write-host "remote has no branch"
+        git checkout -b $pullRequestBranch "Target/$TargetBranch"
+        Write-Host "checking new branch $pullRequestBranch from $TargetBranch"
     }
 
-    if (git diff "Target/$defaultBranch") {
-        write-host 123
-        git -c user.name="azure-sdk" -c user.email="azuresdk@microsoft.com" merge --strategy-option=theirs "Target/$defaultBranch"
+    if (git diff "refs/remotes/Target/$($TargetBranch)") {
+        write-host 114
+        git -c user.name=$UserName -c user.email=$UserEmail merge --strategy-option=theirs "Target/$TargetBranch"
         FailOnError "Failed to merge for ${TargetRepo}:${TargetBranch}"
-        git -c user.name="azure-sdk" -c user.email="azuresdk@microsoft.com" rebase --strategy-option=theirs "Target/$defaultBranch"
-        FailOnError "Failed to rebase for ${TargetRepo}:${TargetBranch}"
+        # git -c user.name=$UserName -c user.email=$UserEmail rebase --strategy-option=theirs "Target/$TargetBranch"
+        # FailOnError "Failed to rebase for ${TargetRepo}:${TargetBranch}"
     }
 
-    git push --force Target "${TargetBranch}:refs/heads/${TargetBranch}"
-    FailOnError "Failed to push to ${TargetRepo}:${TargetBranch}"
+    git push Target "${pullRequestBranch}:refs/heads/${pullRequestBranch}"
+    FailOnError "Failed to push to ${pullRequestBranch}:${pullRequestBranch}"
     
     $FromPath = Join-Path $home_dir "$SourceFolder" "$SourceSyncFilePath"
     $ToPath = Join-Path $home_dir "$TargetFolder" "$TargetSyncFilePath"
+
     write-host $FromPath
     write-host $ToPath
+
     # delete path files
     if (test-path $ToPath) {
         write-host 00000
         Remove-Item "$ToPath" -Force -Recurse
     }
+
     # copy path files from github
     Copy-Item -Path "$FromPath" -Destination "$ToPath" -Recurse -Force
 
@@ -134,43 +140,35 @@ function TargetRepoClone {
     if ($untrackkedFiles) {
         write-host 11
         git add .
-        git commit -m "add untracked files"
-        git push --force Target $($TargetBranch)
-        FailOnError "Failed to push to $($TargetRepo):$($TargetBranch)"
+        git commit -m "Sync files from $SourceRepo/$SourceBranch"
+        git push Target $($pullRequestBranch)
+        FailOnError "Failed to push to $($TargetRepo):$($pullRequestBranch)"
     }
     else {
         write-host 22
-        $diffResult = git diff "refs/remotes/Target/$($defaultBranch)"
+        $diffResult = git diff "refs/remotes/Target/$TargetBranch"
         if ($diffResult) {
             write-host 999992
             git add .
-            git commit -m "sync files"
-            git push --force Target $($TargetBranch)
+            git commit -m "Sync files from $SourceRepo/$SourceBranch"
+            git push Target $($pullRequestBranch)
             FailOnError "Failed to push to $($TargetRepo):$($TargetBranch)"
         }
         else {
             write-host 7777
         }
     }
-    # write-host $diffResult
 
-
-    Install-Module -Name PowerShellForGitHub
-    # $TargetFolder = $TargetRepo -split "/" -join "-"
-    # -Uri "https://github.com/$($TargetRepo)"`
-    # -OwnerName "JackTn" `
-    # -RepositoryName "TestRepo-Two" `
     $OwnerName = ($TargetRepo -split '/')[0] 
     $pullRequests = Get-GitHubPullRequest `
         -AccessToken $GH_TOKEN `
         -Uri "https://github.com/$($TargetRepo)" `
         -State Open `
-        -Head "$($OwnerName):$($TargetBranch)" `
-        -Base "main" 
+        -Head "$($OwnerName):$($pullRequestBranch)" `
+        -Base $($TargetBranch)
     FailOnError "Get $($TargetRepo) pull request: $_"
 
     write-host $pullRequests
-    write-host "llllllll"
     if ($pullRequests.Count -ne 0) { 
         write-host 9999
         write-host "pr already exists"
@@ -184,11 +182,11 @@ function TargetRepoClone {
         $newPullRequest = New-GitHubPullRequest `
             -AccessToken $GH_TOKEN `
             -Uri "https://github.com/$($TargetRepo)" `
-            -Head "$($OwnerName):$($TargetBranch)" `
-            -Base $($defaultBranch) `
-            -Title "test title2" `
-            -Body "test body2" `
-            -MaintainerCanModify `
+            -Head "$($OwnerName):$($pullRequestBranch)" `
+            -Base $($TargetBranch) `
+            -Title $($pullRequestTitle) `
+            -Body $($pullRequestBody) `
+            -MaintainerCanModify
 
         FailOnError "create $($TargetBranch) pull request: $_"
 
@@ -200,106 +198,3 @@ function TargetRepoClone {
 }
 
 TargetRepoClone
-
-function test {
-    Set-Location JackTn-TestRepo-Two
-    Install-Module -Name PowerShellForGitHub
-    $url = "https://api.github.com/repos/$($TargetRepo)/pulls"
-    write-host $url
-    function Get-Headers ($token) {
-        $headers = @{ Authorization = "bearer $token" }
-        return $headers
-    }
-    # $resp = Invoke-RestMethod -Uri $url -Method Get -ContentType "application/json" -Headers (Get-Headers -token $GH_TOKEN) | ConvertFrom-Json
-
-    # $resp = Invoke-WebRequest `
-    #     -Method GET `
-    #     -Headers (Get-Headers -token $GH_TOKEN) `
-    #     -Uri $url `
-    # | ConvertFrom-Json
-
-    # $secureString = ("$GH_TOKEN" | ConvertTo-SecureString -AsPlainText -Force)
-    # $cred = New-Object System.Management.Automation.PSCredential "username is ignored", $secureString
-    # Set-GitHubAuthentication -Credential $cred
-    # # $secureString = $null # clear this out now that it's no longer needed
-    # # $cred = $null # clear this out now that it's no longer needed
-
-    # -Uri "https://github.com/$($TargetRepo)"`
-    # -State Open `
-    # -Base "main" ` 
-    #user:ref-name
-    # -Head "user:Jmain" `
-
-    $pullRequests = Get-GitHubPullRequest `
-        -OwnerName "JackTn" `
-        -RepositoryName "TestRepo-Two" `
-        -AccessToken $GH_TOKEN `
-        -State Open `
-        -Head "Jacktn:JackTn-patch-2" `
-        -Base "main" 
-
-    FailOnError "Faileded $_"
-    # write-host $resp
-    write-host $pullRequests
-    Set-Location $home_dir
-}
-
-function test1 {
-    $pr111 = New-GitHubPullRequest `
-        -AccessToken $GH_TOKEN `
-        -Uri "https://github.com/JackTn/TestRepo-Two" `
-        -Head "JackTn:JackTn-patch-3" `
-        -Base "main" `
-        -Title 'test title' `
-        -Body "test body" `
-        -MaintainerCanModify
-
-    Write-Host $pr111
-    write-host "https://github.com/JackTn/TestRepo-Two/pull/$($pr111.number)"
-}
-# test1
-function test2 {
-    Set-Location JackTn-TestRepo-Two
-    $untracked = git status
-    write-host $status
-    if ($status) {
-        write-host "not empty"
-    }
-    else {
-        write-host "empty"
-    }
-
-    $untracked = git ls-files -o
-    write-host $untracked
-    if ($untracked) {
-        write-host "not empty"
-    }
-    else {
-        write-host "empty"
-    }
-
-    $diff = git diff
-    write-host $diff
-    if ($diff) {
-        write-host "not empty"
-    }
-    else {
-        write-host "empty"
-    }
-
-    Set-Location $home_dir
-}
-# test2
-function test3 {
-    Set-Location JackTn-TestRepo-Two
-    
-    $b = $(git branch --list --remotes "Target/JackTn-patc2h-2")
-    if ($b) {
-        write-host "has branch vb1"
-    }
-    else {
-        write-host "no branch vb2"
-    }
-    Set-Location $home_dir
-}
-# test3
