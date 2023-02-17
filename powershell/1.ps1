@@ -30,13 +30,13 @@ function OriginRepoClone {
     # Set-PsDebug -Trace 1
     $SourceFolder = $SourceRepo -split "/" -join "-"
 
-    git config --global init.defaultBranch "main"
+    git config init.defaultBranch "main"
 
     if (-not (Test-Path $SourceFolder)) {
         New-Item -Path $SourceFolder -ItemType Directory -Force
         Set-Location $SourceFolder
         git init
-        # git config --global init.defaultBranch main
+        # git config init.defaultBranch main
         git remote add Source "https://$($GH_TOKEN)@github.com/$($SourceRepo).git"
     }
     else {
@@ -74,7 +74,7 @@ function TargetRepoClone {
     # $SourceSyncFilePath = "/specification/common-types/" 
     # $TargetSyncFilePath = "/specification/common-types/" 
 
-    git config --global init.defaultBranch "main"
+    git config init.defaultBranch "main"
 
     if (-not (Test-Path $TargetFolder)) {
         New-Item -Path $TargetFolder -ItemType Directory -Force
@@ -86,8 +86,8 @@ function TargetRepoClone {
         Set-Location $TargetFolder
     }
 
-    git config --global user.email "$UserEmail"
-    git config --global user.name "$UserName"
+    git config user.email "$UserEmail"
+    git config user.name "$UserName"
 
     if (!$TargetBranch) {
         $defaultBranch = (git remote show Target | Out-String) -replace "(?ms).*HEAD branch: (\w+).*", '$1'
