@@ -9,15 +9,17 @@ Function FailOnError([string]$ErrorMessage, $CleanUpScripts = 0) {
 $SourceRepo = "JackTn/TestRepo-One"
 $SourceFolder = $SourceRepo -split "/" -join "-"
 $SourceBranch = 'main'
-$SourceSyncFilePath = '/specification/common-types/'
+$SourceSyncFilePath = '/cSpell.json'
 
-$TargetRepo = "JackTn/TestRepo-Two"
+$TargetRepo = "JackTn/TestRepo-Three"
 $TargetFolder = $TargetRepo -split "/" -join "-"
 $TargetBranch = "main"
-$TargetSyncFilePath = "/specification/common-types/"
+$TargetSyncFilePath = "/cSpell.json"
 
-$UserName = "azure-sdk"
-$UserEmail = "azuresdk@microsoft.com"
+# $UserName = "azure-sdk"
+# $UserEmail = "azuresdk@microsoft.com"
+$UserName = "JackTn"
+$UserEmail = "347142915@qq.com"
 $home_dir = $pwd
 $GH_TOKEN = ""
 
@@ -64,7 +66,7 @@ function OriginRepoClone {
     Set-Location $home_dir
 }
 
-# OriginRepoClone
+OriginRepoClone
 
 Install-Module -Name PowerShellForGitHub
 
@@ -112,8 +114,40 @@ function TargetRepoClone {
 
     if (git diff "refs/remotes/Target/$($TargetBranch)") {
         write-host 114
-        git -c user.name=$UserName -c user.email=$UserEmail merge --strategy-option=theirs "Target/$TargetBranch"
-        FailOnError "Failed to merge for ${TargetRepo}:${TargetBranch}"
+        # Fetch the newest code
+        # https://blog.csdn.net/kalman2019/article/details/128214835?spm=1001.2101.3001.6661.1&utm_medium=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7ECTRLIST%7ERate-1-128214835-blog-127226731.pc_relevant_recovery_v2&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7ECTRLIST%7ERate-1-128214835-blog-127226731.pc_relevant_recovery_v2&utm_relevant_index=1
+# git fetch
+
+# # Delete all files which are being added, so there
+# # are no conflicts with untracked files
+# for file in `git diff HEAD..origin/master --name-status | awk '/^A/ {print $2}'`
+# do
+#     rm -f -- "$file"
+# done
+
+# # Checkout all files which were locally modified
+# for file in `git diff --name-status | awk '/^[CDMRTUX]/ {print $2}'`
+# do
+#     git checkout -- "$file"
+# done
+
+# # Finally pull all the changes
+# # (you could merge as well e.g. 'merge origin/master')
+# git pull
+
+
+        # try {
+        #     git -c user.name=$UserName -c user.email=$UserEmail merge --strategy-option theirs "Target/$TargetBranch"
+        #     # FailOnError "Failed to merge for ${TargetRepo}:${TargetBranch}"
+        # }
+        # catch {
+        #     git reset --hard "Target/$TargetBranch"
+        #     FailOnError "Failed to reset for ${TargetRepo}:${TargetBranch}"
+        # }
+        git reset --hard "Target/$TargetBranch"
+        FailOnError "Failed to reset for ${TargetRepo}:${TargetBranch}"
+        # git -c user.name=$UserName -c user.email=$UserEmail merge --strategy-option theirs "Target/$TargetBranch"
+        # FailOnError "Failed to merge for ${TargetRepo}:${TargetBranch}"
         # git -c user.name=$UserName -c user.email=$UserEmail rebase --strategy-option=theirs "Target/$TargetBranch"
         # FailOnError "Failed to rebase for ${TargetRepo}:${TargetBranch}"
     }
