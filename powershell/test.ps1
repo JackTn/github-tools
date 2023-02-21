@@ -101,3 +101,36 @@ function test3 {
     Set-Location $home_dir
 }
 # test3
+
+function test4 {
+    $TargetSyncFilePath = "/cSpell.json", "/custom-words.txt", "/specification/common-types/resource-management"
+    $SourceSyncFilePath = "/cSpell.json", "/custom-words.txt"
+
+    foreach ($item in $SourceSyncFilePath) {
+        $index = $SourceSyncFilePath.IndexOf($item)
+        Write-Host $SourceSyncFilePath[$index]
+
+        if ($null -eq $TargetSyncFilePath[$index]) {
+            Write-Host 11
+        }
+
+    }
+}
+# test4
+
+Function Test5 {
+    Param      
+    (       
+        [parameter(Mandatory = $true)]$Name,       
+        $Age = "18"       
+    )
+    Write-Host "$Name 今年 $Age 岁."      
+}
+# Test5
+
+function Test6 {
+    $a = coalesce(1,2)
+    write-host $a
+}
+
+Test6
